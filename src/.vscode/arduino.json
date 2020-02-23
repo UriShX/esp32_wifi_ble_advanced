@@ -1,0 +1,6 @@
+{
+    "sketch": "beegee1962-esp32_wifi_ble_esp32.ino",
+    "board": "esp32:esp32:lolin32",
+    "configuration": "FlashFreq=80,PartitionScheme=min_spiffs,CPUFreq=240,UploadSpeed=921600",
+    "port": "/dev/ttyUSB0"
+}
