@@ -346,7 +346,10 @@ class ListCallbackHandler: public BLECharacteristicCallbacks {
 		JsonArray& SSID = jsonOut.createNestedArray("SSID");
 		for (int i = 0; i < apNum && i < 10; i++) {
 			String ssid = WiFi.SSID(i);
-			SSID.add(ssid);
+
+			if (WiFi.encryptionType(i) != 0) {
+				SSID.add(ssid);
+			}
 		}
 		// Convert JSON object into a string
 		jsonOut.printTo(wifiSSIDsFound);
