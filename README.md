@@ -1,7 +1,7 @@
 # WiFi configuration over BLE
 
 A esp32-Arduino sketch used to configure WiFi credentials over Bluetooth LE on a ESP32 WROOM. \
-A web based app for configuration can be found [here](hhttps://urishx.github.io/Nuxt_esp32_web-ble_wifi_config/), the code lives in [my github repo](https://github.com/UriShX/Nuxt_esp32_web-ble_wifi_config). This app is written in NuxtJS, and is MIT licensed. \
+A web based app for configuration can be found [here](https://urishx.github.io/Nuxt_esp32_web-ble_wifi_config/), the code lives in [my github repo](https://github.com/UriShX/Nuxt_esp32_web-ble_wifi_config). This app is written in NuxtJS, and is MIT licensed. \
 An older version of the web app can be found [here](https://urishx.github.io/esp32_web-ble_wifi_config/), with it's code [on Github](https://github.com/UriShX/esp32_web-ble_wifi_config). This version is written with KnockoutJS and JQuery, and is also MIT licensed, but less secure and the code is harder to follow.
  
 ### Requirements:
