@@ -45,15 +45,15 @@
 #error ArduinoJson v. 5 is required
 #endif
 
-#define BLEWIFI_NAMESPACE BleWifiConfig
-#define BEGIN_BLE_WIFI_CONFIG_NAMESPACE \
-    namespace BLE_WIFI_CONFIG_NAMESPACE \
-    {
-#define END_BLE_WIFI_CONFIG_NAMESPACE }
+// #define BLEWIFI_NAMESPACE BleWifiConfig
+// #define BEGIN_BLE_WIFI_CONFIG_NAMESPACE \
+//     namespace BLE_WIFI_CONFIG_NAMESPACE \
+//     {
+// #define END_BLE_WIFI_CONFIG_NAMESPACE }
 
-#define USING_NAMESPACE_BLE_WIFI_CONFIG using namespace BLE_WIFI_CONFIG_NAMESPACE;
+// #define USING_NAMESPACE_BLE_WIFI_CONFIG using namespace BLE_WIFI_CONFIG_NAMESPACE;
 
-BEGIN_BLE_WIFI_CONFIG_NAMESPACE
+// BEGIN_BLE_WIFI_CONFIG_NAMESPACE
 
 class BleWifiConfigCommonInterface
 {
@@ -75,11 +75,6 @@ protected:
     /** BLE Server */
     BLEServer *pServer;
 
-    /** freeRTOS task handle */
-    TaskHandle_t sendBLEdataTask;
-    /** freeRTOS mutex handle */
-    SemaphoreHandle_t connStatSemaphore;
-
     /** Private UUIDs */
     std::string _sreviceUuid = "0000aaaa-ead2-11e7-80c1-9a214cf093ae";
     std::string _wifiUuid = "00005555-ead2-11e7-80c1-9a214cf093ae";
@@ -93,6 +88,10 @@ public:
     void (*_connectedCallback)() = NULL;
     void (*_disconnectedCallback)() = NULL;
 
+    /** freeRTOS task handle */
+    TaskHandle_t sendBLEdataTask;
+    /** freeRTOS mutex handle */
+    SemaphoreHandle_t connStatSemaphore;
     // public characteristics
     /** Characteristic for digital output */
     BLECharacteristic *pCharacteristicWiFi;
@@ -177,30 +176,80 @@ protected:
     }
 
 public:
-    BleWifiConfigInterface()
-    {
-    }
+    BleWifiConfigInterface() {}
 
-    ~BleWifiConfigInterface()
-    {
-    }
+    ~BleWifiConfigInterface() {}
+
+    // void sendBLEdata(void *parameter);
 
     void init(String _sreviceUuid = "0000aaaa-ead2-11e7-80c1-9a214cf093ae", String _wifiUuid = "00005555-ead2-11e7-80c1-9a214cf093ae", String _listUuid = "", String _statusUuid = "")
     {
+        // Create unique device name
         apName = createName();
+
+        if (_statusUuid != "")
+        {
+            // Set up mutex semaphore
+            connStatSemaphore = xSemaphoreCreateMutex();
+
+            if (connStatSemaphore == NULL)
+            {
+                Serial.println("Error creating connStatSemaphore");
+            }
+
+            // ble task
+            xTaskCreate(
+                sendBLEdata,
+                "sendBLEdataTask",
+                2048,
+                NULL,
+                1,
+                &sendBLEdataTask);
+            delay(500);
+        }
+
+        Preferences preferences;
+        preferences.begin("WiFiCred", false);
+        bool hasPref = preferences.getBool("valid", false);
+        if (hasPref)
+        {
+            ssidPrim = preferences.getString("ssidPrim", "");
+            ssidSec = preferences.getString("ssidSec", "");
+            pwPrim = preferences.getString("pwPrim", "");
+            pwSec = preferences.getString("pwSec", "");
+
+            Serial.printf("%s,%s,%s,%s\n", ssidPrim, pwPrim, ssidSec, pwSec);
+
+            if (ssidPrim.equals("") || pwPrim.equals("") || ssidSec.equals("") || pwPrim.equals(""))
+            {
+                Serial.println("Found preferences but credentials are invalid");
+            }
+            else
+            {
+                Serial.println("Read from preferences:");
+                Serial.println("primary SSID: " + ssidPrim + " password: " + pwPrim);
+                Serial.println("secondary SSID: " + ssidSec + " password: " + pwSec);
+                hasCredentials = true;
+            }
+        }
+        else
+        {
+            Serial.println("Could not find preferences, need send data over BLE");
+        }
+        preferences.end();
     }
 
     // TODO why must these functions be inline??
 
     inline bool begin(const char *deviceName);
 
+    void connectWiFi();
+
     int publicWifiScan()
     {
         apNum = actualWiFiScan();
         return apNum;
     }
-
-    void sendBLEdata(void *parameter);
 
     bool scanWiFi();
 };
@@ -486,8 +535,10 @@ bool BleWifiConfigInterface::begin(const char *deviceName)
  * in order to not cause interference between the two tasks, a mutex semaphore is used by the
  * wifi connection callbacks which update the variable, loop(), and the notification task.
  */
-void BleWifiConfigInterface::sendBLEdata(void *parameter)
+void sendBLEdata(void *parameter)
 {
+    BleWifiConfigInterface *_bleWifiConfigInterface = (BleWifiConfigInterface *)parameter; //static_cast<BleWifiConfigInterface *>(parameter);
+
     TickType_t xLastWakeTime;
     TickType_t xPeriod = pdMS_TO_TICKS(1000);
 
@@ -498,20 +549,20 @@ void BleWifiConfigInterface::sendBLEdata(void *parameter)
     while (1)
     {
         // if the device is connected via BLE try to send notifications
-        if (deviceConnected)
+        if (_bleWifiConfigInterface->deviceConnected)
         {
             // Take mutex, set value, give mutex
-            xSemaphoreTake(connStatSemaphore, 0);
-            pCharacteristicStatus->setValue(sendVal);
-            xSemaphoreGive(connStatSemaphore);
+            xSemaphoreTake(_bleWifiConfigInterface->connStatSemaphore, 0);
+            _bleWifiConfigInterface->pCharacteristicStatus->setValue(_bleWifiConfigInterface->sendVal);
+            xSemaphoreGive(_bleWifiConfigInterface->connStatSemaphore);
 
             // test if notifications are enabled by client
-            byte testNotify = *pCharacteristicStatus->getDescriptorByUUID((uint16_t)0x2902)->getValue();
+            byte testNotify = *_bleWifiConfigInterface->pCharacteristicStatus->getDescriptorByUUID((uint16_t)0x2902)->getValue();
 
             // if enabled, send value over BLE
             if (testNotify == 1)
             {
-                pCharacteristicStatus->notify(); // Send the value to the app!
+                _bleWifiConfigInterface->pCharacteristicStatus->notify(); // Send the value to the app!
                 if (!notificationFlag)
                 {
                     Serial.println("started notification service");
@@ -602,4 +653,69 @@ bool BleWifiConfigInterface::scanWiFi()
     return result;
 }
 
-END_BLE_WIFI_CONFIG_NAMESPACE
+/** Callback for receiving IP address from AP */
+void gotIP(system_event_id_t event)
+{
+    BleWifiConfigInterface *_bleWifiConfigInterface;
+
+    _bleWifiConfigInterface->isConnected = true;
+    _bleWifiConfigInterface->connStatusChanged = true;
+    /** Check if ip corresponds to 1st or 2nd configured SSID 
+	 * takes semaphore, sets (uint16_t)sendVal, and gives semaphore
+	*/
+    String connectedSSID = WiFi.SSID();
+    xSemaphoreTake(_bleWifiConfigInterface->connStatSemaphore, portMAX_DELAY);
+    if (connectedSSID == _bleWifiConfigInterface->ssidPrim)
+    {
+        // Serial.println("connected to primary SSID");
+        _bleWifiConfigInterface->sendVal = 0x0001;
+    }
+    else if (connectedSSID == _bleWifiConfigInterface->ssidSec)
+    {
+        _bleWifiConfigInterface->sendVal = 0x0002;
+    }
+    xSemaphoreGive(_bleWifiConfigInterface->connStatSemaphore);
+}
+
+/** Callback for connection loss */
+void lostCon(system_event_id_t event)
+{
+    BleWifiConfigInterface *_bleWifiConfigInterface;
+
+    _bleWifiConfigInterface->isConnected = false;
+    _bleWifiConfigInterface->connStatusChanged = true;
+    /** if disconnected, take semaphore, set (uint16_t)sendVal = 0, give semaphore */
+    xSemaphoreTake(_bleWifiConfigInterface->connStatSemaphore, portMAX_DELAY);
+    _bleWifiConfigInterface->sendVal = 0x0000;
+    xSemaphoreGive(_bleWifiConfigInterface->connStatSemaphore);
+}
+
+/**
+ * Start connection to AP
+ */
+void BleWifiConfigInterface::connectWiFi()
+{
+    // Setup callback function for successful connection
+    WiFi.onEvent(gotIP, SYSTEM_EVENT_STA_GOT_IP);
+    // Setup callback function for lost connection
+    WiFi.onEvent(lostCon, SYSTEM_EVENT_STA_DISCONNECTED);
+
+    WiFi.disconnect(true);
+    WiFi.enableSTA(true);
+    WiFi.mode(WIFI_STA);
+
+    Serial.println();
+    Serial.print("Start connection to ");
+    if (usePrimAP)
+    {
+        Serial.println(ssidPrim);
+        WiFi.begin(ssidPrim.c_str(), pwPrim.c_str());
+    }
+    else
+    {
+        Serial.println(ssidSec);
+        WiFi.begin(ssidSec.c_str(), pwSec.c_str());
+    }
+}
+
+// END_BLE_WIFI_CONFIG_NAMESPACE
