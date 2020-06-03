@@ -48,6 +48,8 @@
 // Dev branch!!!!
 #include <WiFiManager.h>
 
+#include "ble_WiFiManager.h"
+
 class Ble_WiFiManager
 {
 private:
@@ -249,7 +251,7 @@ public:
 
 		// Start advertising
 		pAdvertising = pServer->getAdvertising();
-		pAdvertising->addServiceUUID(SERVICE_UUID);
+		pAdvertising->addServiceUUID(_sreviceUuid);
 		pAdvertising->setScanResponse(true);
 		pAdvertising->start();
 	}
