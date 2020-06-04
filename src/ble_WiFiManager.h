@@ -54,20 +54,20 @@
 #error ArduinoJson v. 5 is required
 #endif
 
-#define BLEWIFI_NAMESPACE BleWifiConfig
-#define BEGIN_BLE_WIFI_CONFIG_NAMESPACE \
-    namespace BLE_WIFI_CONFIG_NAMESPACE \
-    {
-#define END_BLE_WIFI_CONFIG_NAMESPACE }
+// #define BLEWIFI_NAMESPACE BleWifiConfig
+// #define BEGIN_BLE_WIFI_CONFIG_NAMESPACE \
+//     namespace BLE_WIFI_CONFIG_NAMESPACE \
+//     {
+// #define END_BLE_WIFI_CONFIG_NAMESPACE }
 
-#define USING_NAMESPACE_BLE_WIFI_CONFIG using namespace BLE_WIFI_CONFIG_NAMESPACE;
+// #define USING_NAMESPACE_BLE_WIFI_CONFIG using namespace BLE_WIFI_CONFIG_NAMESPACE;
 
-BEGIN_BLE_WIFI_CONFIG_NAMESPACE
+// BEGIN_BLE_WIFI_CONFIG_NAMESPACE
 
-/*! \brief Create an instance of the library
- */
-#define BLE_WIFI_CONFIG_CREATE_INSTANCE(Name) \
-    BLE_WIFI_CONFIG_NAMESPACE::BleWifiConfigInterface Name;
+// /*! \brief Create an instance of the library
+//  */
+// #define BLE_WIFI_CONFIG_CREATE_INSTANCE(Name) \
+//     BLE_WIFI_CONFIG_NAMESPACE::BleWifiConfigInterface Name;
 
 class BleWifiConfigCommonInterface
 {
@@ -196,6 +196,8 @@ protected:
     // TODO why must these functions be inline??
     inline bool _begin(const char *deviceName);
 
+    void wifiConnCallback(WiFiEvent_t event, system_event_info_t info);
+
 public:
     BleWifiConfigInterface() {}
 
@@ -274,7 +276,7 @@ public:
 
     bool scanWiFi();
 
-    bool wifiWatchdog();
+    void wifiWatchdog();
 };
 
 /**
@@ -344,7 +346,7 @@ protected:
         int keyIndex = 0;
         for (int index = 0; index < value.length(); index++)
         {
-            value[index] = (char)value[index] ^ (char)&_bleWifiConfigInterface->apName[keyIndex];
+            value[index] = value[index] ^ _bleWifiConfigInterface->apName[keyIndex];
             keyIndex++;
             if (keyIndex >= _bleWifiConfigInterface->apName.length())
                 keyIndex = 0;
@@ -431,7 +433,7 @@ protected:
         Serial.println("Stored settings: " + wifiCredentials);
         for (int index = 0; index < wifiCredentials.length(); index++)
         {
-            wifiCredentials[index] = (char)wifiCredentials[index] ^ (char)&_bleWifiConfigInterface->apName[keyIndex];
+            wifiCredentials[index] = wifiCredentials[index] ^ _bleWifiConfigInterface->apName[keyIndex];
             keyIndex++;
             if (keyIndex >= _bleWifiConfigInterface->apName.length())
                 keyIndex = 0;
@@ -516,15 +518,15 @@ void BleWifiConfigInterface::_init(std::string _sreviceUuid, std::string _wifiUu
             Serial.println("Error creating connStatSemaphore");
         }
 
-        // ble task
-        xTaskCreate(
-            sendBLEdata,
-            "sendBLEdataTask",
-            2048,
-            NULL,
-            1,
-            &sendBLEdataTask);
-        delay(500);
+        // // ble task
+        // xTaskCreate(
+        //     sendBLEdata,
+        //     "sendBLEdataTask",
+        //     2048,
+        //     NULL,
+        //     1,
+        //     &sendBLEdataTask);
+        // delay(500);
     }
 
     Preferences BleWiFiPrefs;
@@ -537,7 +539,7 @@ void BleWifiConfigInterface::_init(std::string _sreviceUuid, std::string _wifiUu
         pwPrim = BleWiFiPrefs.getString("pwPrim", "");
         pwSec = BleWiFiPrefs.getString("pwSec", "");
 
-        Serial.printf("%s,%s,%s,%s\n", ssidPrim, pwPrim, ssidSec, pwSec);
+        Serial.printf("%s,%s,%s,%s\n", ssidPrim.c_str(), pwPrim.c_str(), ssidSec.c_str(), pwSec.c_str());
 
         if (ssidPrim.equals("") || pwPrim.equals("") || ssidSec.equals("") || pwPrim.equals(""))
         {
@@ -631,6 +633,8 @@ bool BleWifiConfigInterface::startWiFiConnection()
             return connectWiFi();
         }
     }
+    else
+        return false;
 }
 
 /** BLE notification task
@@ -758,41 +762,41 @@ bool BleWifiConfigInterface::scanWiFi()
     return result;
 }
 
-/** Callback for receiving IP address from AP */
-void gotIP(system_event_id_t event)
+void BleWifiConfigInterface::wifiConnCallback(WiFiEvent_t event, system_event_info_t info)
 {
-    BleWifiConfigInterface *_bleWifiConfigInterface;
-
-    _bleWifiConfigInterface->isConnected = true;
-    _bleWifiConfigInterface->connStatusChanged = true;
-    /** Check if ip corresponds to 1st or 2nd configured SSID 
-	 * takes semaphore, sets (uint16_t)sendVal, and gives semaphore
-	*/
-    String connectedSSID = WiFi.SSID();
-    xSemaphoreTake(_bleWifiConfigInterface->connStatSemaphore, portMAX_DELAY);
-    if (connectedSSID == _bleWifiConfigInterface->ssidPrim)
+    if (event == SYSTEM_EVENT_STA_GOT_IP)
     {
-        // Serial.println("connected to primary SSID");
-        _bleWifiConfigInterface->sendVal = 0x0001;
+        /** Callback for receiving IP address from AP */
+
+        isConnected = true;
+        connStatusChanged = true;
+        /** Check if ip corresponds to 1st or 2nd configured SSID 
+	    * takes semaphore, sets (uint16_t)sendVal, and gives semaphore
+	    */
+        String connectedSSID = WiFi.SSID();
+        xSemaphoreTake(connStatSemaphore, portMAX_DELAY);
+        if (connectedSSID == ssidPrim)
+        {
+            // Serial.println("connected to primary SSID");
+            sendVal = 0x0001;
+        }
+        else if (connectedSSID == ssidSec)
+        {
+            sendVal = 0x0002;
+        }
+        xSemaphoreGive(connStatSemaphore);
     }
-    else if (connectedSSID == _bleWifiConfigInterface->ssidSec)
+    else if (event = SYSTEM_EVENT_STA_DISCONNECTED)
     {
-        _bleWifiConfigInterface->sendVal = 0x0002;
+        /** Callback for connection loss */
+
+        isConnected = false;
+        connStatusChanged = true;
+        /** if disconnected, take semaphore, set (uint16_t)sendVal = 0, give semaphore */
+        xSemaphoreTake(connStatSemaphore, portMAX_DELAY);
+        sendVal = 0x0000;
+        xSemaphoreGive(connStatSemaphore);
     }
-    xSemaphoreGive(_bleWifiConfigInterface->connStatSemaphore);
-}
-
-/** Callback for connection loss */
-void lostCon(system_event_id_t event)
-{
-    BleWifiConfigInterface *_bleWifiConfigInterface;
-
-    _bleWifiConfigInterface->isConnected = false;
-    _bleWifiConfigInterface->connStatusChanged = true;
-    /** if disconnected, take semaphore, set (uint16_t)sendVal = 0, give semaphore */
-    xSemaphoreTake(_bleWifiConfigInterface->connStatSemaphore, portMAX_DELAY);
-    _bleWifiConfigInterface->sendVal = 0x0000;
-    xSemaphoreGive(_bleWifiConfigInterface->connStatSemaphore);
 }
 
 /**
@@ -800,10 +804,9 @@ void lostCon(system_event_id_t event)
  */
 bool BleWifiConfigInterface::connectWiFi()
 {
-    // Setup callback function for successful connection
-    WiFi.onEvent(gotIP, SYSTEM_EVENT_STA_GOT_IP);
-    // Setup callback function for lost connection
-    WiFi.onEvent(lostCon, SYSTEM_EVENT_STA_DISCONNECTED);
+    using namespace std::placeholders;
+    // Setup callback functions for connection and connection loss
+    WiFi.onEvent(std::bind(&BleWifiConfigInterface::wifiConnCallback, this, _1, _2));
 
     WiFi.disconnect(true);
     WiFi.enableSTA(true);
@@ -819,7 +822,7 @@ bool BleWifiConfigInterface::connectWiFi()
             return true;
         else
         {
-            Serial.printf("Connection failed: %s\n", wifiConnStat[connStat]);
+            Serial.printf("Connection failed: %s\n", wifiConnStat[connStat].c_str());
             return false;
         }
     }
@@ -831,13 +834,13 @@ bool BleWifiConfigInterface::connectWiFi()
             return true;
         else
         {
-            Serial.printf("Connection failed: %s\n", wifiConnStat[connStat]);
+            Serial.printf("Connection failed: %s\n", wifiConnStat[connStat].c_str());
             return false;
         }
     }
 }
 
-bool BleWifiConfigInterface::wifiWatchdog()
+void BleWifiConfigInterface::wifiWatchdog()
 {
     if (connStatusChanged)
     {
@@ -877,4 +880,4 @@ bool BleWifiConfigInterface::wifiWatchdog()
     }
 }
 
-END_BLE_WIFI_CONFIG_NAMESPACE
+// END_BLE_WIFI_CONFIG_NAMESPACE
