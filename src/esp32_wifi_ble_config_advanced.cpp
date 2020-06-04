@@ -46,7 +46,7 @@
 
 // https://github.com/tzapu/WiFiManager
 // Dev branch!!!!
-#include <WiFiManager.h>
+// #include <WiFiManager.h>
 
 #include "ble_WiFiManager.h"
 
@@ -71,8 +71,8 @@ void setup()
 	Serial.print("Build: ");
 	Serial.println(compileDate);
 
-	// Start BLE server
-	initBLE();
+		// Start BLE server
+	bleWifi.init();
 
 	if (hasCredentials)
 	{

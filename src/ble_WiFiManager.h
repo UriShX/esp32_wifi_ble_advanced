@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "Arduino.h"
 // Headers for ESP32 BLE
 #include <BLEUtils.h>
 #include <BLEServer.h>
