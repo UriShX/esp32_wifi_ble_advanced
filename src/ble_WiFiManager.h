@@ -544,8 +544,11 @@ void BleWifiConfigInterface::_init(std::string _sreviceUuid, std::string _wifiUu
 
 bool BleWifiConfigInterface::begin(const char *deviceName)
 {
-    BLEDevice::init(deviceName);
-    BLEDevice::setPower(ESP_PWR_LVL_P7);
+    if (!BLEDevice::getInitialized())
+    {
+        BLEDevice::init(deviceName);
+        BLEDevice::setPower(ESP_PWR_LVL_P7);
+    }
 
     // Create BLE Server
     pServer = BLEDevice::createServer();
