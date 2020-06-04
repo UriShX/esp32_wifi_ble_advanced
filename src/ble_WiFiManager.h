@@ -69,16 +69,17 @@
 // #define BLE_WIFI_CONFIG_CREATE_INSTANCE(Name) \
 //     BLE_WIFI_CONFIG_NAMESPACE::BleWifiConfigInterface Name;
 
-class BleWifiConfigCommonInterface
-{
-protected:
-public:
-    BleWifiConfigCommonInterface() {}
+// class BleWifiConfigCommonInterface
+// {
+// protected:
+// public:
+//     BleWifiConfigCommonInterface() {}
 
-protected:
-};
+// protected:
+// };
 
-class BleWifiConfigInterface : public BleWifiConfigCommonInterface
+class BleWifiConfigInterface
+//  : public BleWifiConfigCommonInterface
 {
 protected:
     // ESP32
@@ -197,6 +198,10 @@ protected:
     inline bool _begin(const char *deviceName);
 
     void wifiConnCallback(WiFiEvent_t event, system_event_info_t info);
+
+    void _startTask(void);
+
+    static void sendBLEdata(void *parameter);
 
 public:
     BleWifiConfigInterface() {}
@@ -510,23 +515,8 @@ void BleWifiConfigInterface::_init(std::string _sreviceUuid, std::string _wifiUu
 
     if (_statusUuid != "")
     {
-        // Set up mutex semaphore
-        connStatSemaphore = xSemaphoreCreateMutex();
-
-        if (connStatSemaphore == NULL)
-        {
-            Serial.println("Error creating connStatSemaphore");
-        }
-
-        // // ble task
-        // xTaskCreate(
-        //     sendBLEdata,
-        //     "sendBLEdataTask",
-        //     2048,
-        //     NULL,
-        //     1,
-        //     &sendBLEdataTask);
-        // delay(500);
+        // start notification task
+        _startTask();
     }
 
     Preferences BleWiFiPrefs;
@@ -637,6 +627,29 @@ bool BleWifiConfigInterface::startWiFiConnection()
         return false;
 }
 
+void BleWifiConfigInterface::_startTask(void)
+{
+    // Set up mutex semaphore
+    connStatSemaphore = xSemaphoreCreateMutex();
+
+    if (connStatSemaphore == NULL)
+    {
+        Serial.println("Error creating connStatSemaphore");
+    }
+
+    // ble task
+    // typedef void (*TaskFunction_t)( void * );
+    xTaskCreate(
+        &sendBLEdata,
+        "sendBLEdataTask",
+        2048,
+        this,
+        1,
+        &sendBLEdataTask);
+    // delay(500);
+    vTaskDelay(pdMS_TO_TICKS(500));
+}
+
 /** BLE notification task
  * works independently from loop(), in a separate freeRTOS task.
  * if the esp32 device (server) is connected to a client, update the client every 1 second
@@ -644,8 +657,11 @@ bool BleWifiConfigInterface::startWiFiConnection()
  * in order to not cause interference between the two tasks, a mutex semaphore is used by the
  * wifi connection callbacks which update the variable, loop(), and the notification task.
  */
-void sendBLEdata(void *parameter)
+void BleWifiConfigInterface::sendBLEdata(void *parameter)
 {
+    // static_cast<BleWifiConfigInterface *>(parameter)->task();
+    // static void taskfun(void* parm) {
+    // static_cast<TaskClass *>(parm)->task();
     BleWifiConfigInterface *_bleWifiConfigInterface = (BleWifiConfigInterface *)parameter; //static_cast<BleWifiConfigInterface *>(parameter);
 
     TickType_t xLastWakeTime;
@@ -786,7 +802,7 @@ void BleWifiConfigInterface::wifiConnCallback(WiFiEvent_t event, system_event_in
         }
         xSemaphoreGive(connStatSemaphore);
     }
-    else if (event = SYSTEM_EVENT_STA_DISCONNECTED)
+    else if (event == SYSTEM_EVENT_STA_DISCONNECTED)
     {
         /** Callback for connection loss */
 
