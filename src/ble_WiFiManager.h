@@ -348,14 +348,14 @@ protected:
                 _bleWifiConfigInterface->ssidSec = jsonIn["ssidSec"].as<String>();
                 _bleWifiConfigInterface->pwSec = jsonIn["pwSec"].as<String>();
 
-                Preferences preferences;
-                preferences.begin("WiFiCred", false);
-                preferences.putString("ssidPrim", _bleWifiConfigInterface->ssidPrim);
-                preferences.putString("ssidSec", _bleWifiConfigInterface->ssidSec);
-                preferences.putString("pwPrim", _bleWifiConfigInterface->pwPrim);
-                preferences.putString("pwSec", _bleWifiConfigInterface->pwSec);
-                preferences.putBool("valid", true);
-                preferences.end();
+                Preferences BleWiFiPrefs;
+                BleWiFiPrefs.begin("BleWiFiCred", false);
+                BleWiFiPrefs.putString("ssidPrim", _bleWifiConfigInterface->ssidPrim);
+                BleWiFiPrefs.putString("ssidSec", _bleWifiConfigInterface->ssidSec);
+                BleWiFiPrefs.putString("pwPrim", _bleWifiConfigInterface->pwPrim);
+                BleWiFiPrefs.putString("pwSec", _bleWifiConfigInterface->pwSec);
+                BleWiFiPrefs.putBool("valid", true);
+                BleWiFiPrefs.end();
 
                 Serial.println("Received over bluetooth:");
                 Serial.println("primary SSID: " + _bleWifiConfigInterface->ssidPrim + " password: " + _bleWifiConfigInterface->pwPrim);
@@ -366,10 +366,10 @@ protected:
             else if (jsonIn.containsKey("erase"))
             {
                 Serial.println("Received erase command");
-                Preferences preferences;
-                preferences.begin("WiFiCred", false);
-                preferences.clear();
-                preferences.end();
+                Preferences BleWiFiPrefs;
+                BleWiFiPrefs.begin("BleWiFiCred", false);
+                BleWiFiPrefs.clear();
+                BleWiFiPrefs.end();
                 _bleWifiConfigInterface->connStatusChanged = true;
                 _bleWifiConfigInterface->hasCredentials = false;
                 _bleWifiConfigInterface->ssidPrim = "";
@@ -511,25 +511,25 @@ void BleWifiConfigInterface::_init(std::string _sreviceUuid, std::string _wifiUu
         delay(500);
     }
 
-    Preferences preferences;
-    preferences.begin("WiFiCred", false);
-    bool hasPref = preferences.getBool("valid", false);
+    Preferences BleWiFiPrefs;
+    BleWiFiPrefs.begin("BleWiFiCred", false);
+    bool hasPref = BleWiFiPrefs.getBool("valid", false);
     if (hasPref)
     {
-        ssidPrim = preferences.getString("ssidPrim", "");
-        ssidSec = preferences.getString("ssidSec", "");
-        pwPrim = preferences.getString("pwPrim", "");
-        pwSec = preferences.getString("pwSec", "");
+        ssidPrim = BleWiFiPrefs.getString("ssidPrim", "");
+        ssidSec = BleWiFiPrefs.getString("ssidSec", "");
+        pwPrim = BleWiFiPrefs.getString("pwPrim", "");
+        pwSec = BleWiFiPrefs.getString("pwSec", "");
 
         Serial.printf("%s,%s,%s,%s\n", ssidPrim, pwPrim, ssidSec, pwSec);
 
         if (ssidPrim.equals("") || pwPrim.equals("") || ssidSec.equals("") || pwPrim.equals(""))
         {
-            Serial.println("Found preferences but credentials are invalid");
+            Serial.println("Found credentials but credentials are invalid");
         }
         else
         {
-            Serial.println("Read from preferences:");
+            Serial.println("Read from credentials:");
             Serial.println("primary SSID: " + ssidPrim + " password: " + pwPrim);
             Serial.println("secondary SSID: " + ssidSec + " password: " + pwSec);
             hasCredentials = true;
@@ -537,9 +537,9 @@ void BleWifiConfigInterface::_init(std::string _sreviceUuid, std::string _wifiUu
     }
     else
     {
-        Serial.println("Could not find preferences, need send data over BLE");
+        Serial.println("Could not find credentials, need send data over BLE");
     }
-    preferences.end();
+    BleWiFiPrefs.end();
 }
 
 bool BleWifiConfigInterface::begin(const char *deviceName)
