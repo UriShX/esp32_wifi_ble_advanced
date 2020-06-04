@@ -136,6 +136,8 @@ public:
     uint16_t sendVal = 0x0000;
     /** WiFi authentication mode types for enum parsing, based on esp_wifi_types.h */
     const String authModes[7] = {"open", "WEP", "WPA_PSK", "WPA2_PSK", "WPA_WPA2_PSK", "WPA2_ENTERPRISE", "MAX"};
+    /** WiFi connection status types for enum parsing from WiFiType.h */
+    const String wifiConnStat[7] = {"WL_IDLE_STATUS", "WL_NO_SSID_AVAIL", "WL_SCAN_COMPLETED", "WL_CONNECTED", "WL_CONNECT_FAILED", "WL_CONNECTION_LOST", "WL_DISCONNECTED"};
 
     /** Preferences */
     /** SSIDs of local WiFi networks */
@@ -252,10 +254,12 @@ public:
     // TODO why must these functions be inline??
     inline bool begin()
     {
-        _begin(apName.c_str());
+        return _begin(apName.c_str());
     }
 
-    void connectWiFi();
+    bool startWiFiConnection();
+
+    bool connectWiFi();
 
     int publicWifiScan()
     {
@@ -602,6 +606,26 @@ bool BleWifiConfigInterface::_begin(const char *deviceName)
     return true;
 }
 
+bool BleWifiConfigInterface::startWiFiConnection()
+{
+    if (hasCredentials)
+    {
+        apScanTime = millis();
+        // Check for available AP's
+        if (!scanWiFi())
+        {
+            Serial.println("Could not find any AP");
+
+            return false;
+        }
+        else
+        {
+            // If AP was found, start connection
+            return connectWiFi();
+        }
+    }
+}
+
 /** BLE notification task
  * works independently from loop(), in a separate freeRTOS task.
  * if the esp32 device (server) is connected to a client, update the client every 1 second
@@ -767,7 +791,7 @@ void lostCon(system_event_id_t event)
 /**
  * Start connection to AP
  */
-void BleWifiConfigInterface::connectWiFi()
+bool BleWifiConfigInterface::connectWiFi()
 {
     // Setup callback function for successful connection
     WiFi.onEvent(gotIP, SYSTEM_EVENT_STA_GOT_IP);
@@ -783,12 +807,26 @@ void BleWifiConfigInterface::connectWiFi()
     if (usePrimAP)
     {
         Serial.println(ssidPrim);
-        WiFi.begin(ssidPrim.c_str(), pwPrim.c_str());
+        byte connStat = WiFi.begin(ssidPrim.c_str(), pwPrim.c_str());
+        if (connStat == 3)
+            return true;
+        else
+        {
+            Serial.printf("Connection failed: %s\n", wifiConnStat[connStat]);
+            return false;
+        }
     }
     else
     {
         Serial.println(ssidSec);
-        WiFi.begin(ssidSec.c_str(), pwSec.c_str());
+        byte connStat = WiFi.begin(ssidSec.c_str(), pwSec.c_str());
+        if (connStat == 3)
+            return true;
+        else
+        {
+            Serial.printf("Connection failed: %s\n", wifiConnStat[connStat]);
+            return false;
+        }
     }
 }
 

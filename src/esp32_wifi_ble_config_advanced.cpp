@@ -61,7 +61,7 @@ const char compileDate[] = __DATE__ " " __TIME__;
 #define WIFI_LIST_UUID "1d338124-7ddc-449e-afc7-67f8673a1160"
 #define WIFI_STATUS_UUID "5b3595c4-ad4f-4e1e-954e-3b290cc02eb0"
 
-BLE_WIFI_CONFIG_CREATE_INSTANCE(bleWifi);
+BLE_WIFI_CONFIG_CREATE_INSTANCE(bleWiFiConfig);
 
 void setup()
 {
@@ -72,24 +72,14 @@ void setup()
 	Serial.println(compileDate);
 
 	// Initalize BLE server with default UUIDs
-	bleWifi.init();
+	bleWiFiConfig.init();
 
-	bleWifi.begin();
+	Serial.printf("%s\n", BLEDevice::toString());
 
-	if (hasCredentials)
-	{
-		apScanTime = millis();
-		// Check for available AP's
-		if (!scanWiFi())
-		{
-			Serial.println("Could not find any AP");
-		}
-		else
-		{
-			// If AP was found, start connection
-			connectWiFi();
-		}
-	}
+	while (!bleWiFiConfig.begin())
+		;
+
+	bleWiFiConfig.startWiFiConnection();
 }
 
 void loop()
