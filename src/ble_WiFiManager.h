@@ -81,8 +81,6 @@ class BleWifiConfigInterface : public BleWifiConfigCommonInterface
 {
 protected:
     // ESP32
-    /** BLE Advertiser */
-    BLEAdvertising *pAdvertising;
     /** BLE Service */
     BLEService *pService;
     /** BLE Server */
@@ -112,6 +110,8 @@ public:
     BLECharacteristic *pCharacteristicList;
     /** Characteristic for connection status */
     BLECharacteristic *pCharacteristicStatus;
+    /** BLE Advertiser */
+    BLEAdvertising *pAdvertising;
 
     // public vars
     /** Selected network 
@@ -278,7 +278,7 @@ protected:
     void onConnect(BLEServer *pServer)
     {
         Serial.println("BLE client connected");
-        // bleWifiManager.deviceConnected = true;
+        _bleWifiConfigInterface->deviceConnected = true;
         if (_bleWifiConfigInterface->_connectedCallback)
             _bleWifiConfigInterface->_connectedCallback();
     };
@@ -286,8 +286,8 @@ protected:
     void onDisconnect(BLEServer *pServer)
     {
         Serial.println("BLE client disconnected");
-        // bleWifiManager.deviceConnected = false;
-        // bleWifiManager.pAdvertising->start();
+        _bleWifiConfigInterface->deviceConnected = false;
+        _bleWifiConfigInterface->pAdvertising->start();
         if (_bleWifiConfigInterface->_disconnectedCallback)
             _bleWifiConfigInterface->_disconnectedCallback();
     }
