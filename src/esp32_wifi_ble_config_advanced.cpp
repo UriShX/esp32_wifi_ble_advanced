@@ -84,40 +84,5 @@ void setup()
 
 void loop()
 {
-	if (connStatusChanged)
-	{
-		if (isConnected)
-		{
-			Serial.print("Connected to AP: ");
-			String connectedSSID = WiFi.SSID();
-			xSemaphoreTake(connStatSemaphore, portMAX_DELAY);
-			if (sendVal == 1)
-				Serial.println("connected to primary SSID");
-			else if (sendVal == 2)
-				Serial.println("Connected to secondary SSID");
-			xSemaphoreGive(connStatSemaphore);
-			Serial.print(connectedSSID);
-			Serial.print(" with IP: ");
-			Serial.print(WiFi.localIP());
-			Serial.print(" RSSI: ");
-			Serial.println(WiFi.RSSI());
-		}
-		else
-		{
-			if (hasCredentials)
-			{
-				Serial.println("Lost WiFi connection");
-				// Received WiFi credentials
-				if (!scanWiFi())
-				{ // Check for available AP's
-					Serial.println("Could not find any AP");
-				}
-				else
-				{ // If AP was found, start connection
-					connectWiFi();
-				}
-			}
-		}
-		connStatusChanged = false;
-	}
+	bleWiFiConfig.wifiWatchdog();
 }
