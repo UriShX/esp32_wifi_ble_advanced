@@ -160,7 +160,7 @@ protected:
         // // Write unique name into apName
         // sprintf(apName, "ESP32-%02X%02X%02X%02X%02X%02X", baseMac[0], baseMac[1], baseMac[2], baseMac[3], baseMac[4], baseMac[5]);
 
-        String hostString = String(WIFI_getChipId(), HEX);
+        String hostString = String((uint32_t)ESP.getEfuseMac(), HEX);
         hostString.toUpperCase();
         return "ESP32-" + hostString;
     }
@@ -190,6 +190,9 @@ protected:
     }
 
     void _init(std::string _sreviceUuid, std::string _wifiUuid, std::string _listUuid, std::string _statusUuid);
+
+    // TODO why must these functions be inline??
+    inline bool _begin(const char *deviceName);
 
 public:
     BleWifiConfigInterface() {}
@@ -247,8 +250,10 @@ public:
     }
 
     // TODO why must these functions be inline??
-
-    inline bool begin(const char *deviceName);
+    inline bool begin()
+    {
+        _begin(apName.c_str());
+    }
 
     void connectWiFi();
 
@@ -542,7 +547,7 @@ void BleWifiConfigInterface::_init(std::string _sreviceUuid, std::string _wifiUu
     BleWiFiPrefs.end();
 }
 
-bool BleWifiConfigInterface::begin(const char *deviceName)
+bool BleWifiConfigInterface::_begin(const char *deviceName)
 {
     if (BLEDevice::getInitialized())
     {

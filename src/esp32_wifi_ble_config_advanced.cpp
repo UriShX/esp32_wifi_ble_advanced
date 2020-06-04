@@ -71,8 +71,10 @@ void setup()
 	Serial.print("Build: ");
 	Serial.println(compileDate);
 
-		// Start BLE server
+	// Initalize BLE server with default UUIDs
 	bleWifi.init();
+
+	bleWifi.begin();
 
 	if (hasCredentials)
 	{
