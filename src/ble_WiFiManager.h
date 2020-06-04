@@ -35,6 +35,14 @@
 #include <WiFi.h>
 // #include <WiFiMulti.h>
 
+// List of Service and Characteristic UUIDs
+// service & wifi uuid are what's used in the original sketch, to maintain compatibility
+// list & status uuid were randomly generated using https://www.uuidgenerator.net/
+#define DEF_SERVICE_UUID "0000aaaa-ead2-11e7-80c1-9a214cf093ae"
+#define DEF_WIFI_UUID "00005555-ead2-11e7-80c1-9a214cf093ae"
+#define DEF_WIFI_LIST_UUID "1d338124-7ddc-449e-afc7-67f8673a1160"
+#define DEF_WIFI_STATUS_UUID "5b3595c4-ad4f-4e1e-954e-3b290cc02eb0"
+
 // #ifdef WiFiManager_h
 // #define MANAGE_WIFI true
 // #elif
@@ -45,15 +53,20 @@
 #error ArduinoJson v. 5 is required
 #endif
 
-// #define BLEWIFI_NAMESPACE BleWifiConfig
-// #define BEGIN_BLE_WIFI_CONFIG_NAMESPACE \
-//     namespace BLE_WIFI_CONFIG_NAMESPACE \
-//     {
-// #define END_BLE_WIFI_CONFIG_NAMESPACE }
+#define BLEWIFI_NAMESPACE BleWifiConfig
+#define BEGIN_BLE_WIFI_CONFIG_NAMESPACE \
+    namespace BLE_WIFI_CONFIG_NAMESPACE \
+    {
+#define END_BLE_WIFI_CONFIG_NAMESPACE }
 
-// #define USING_NAMESPACE_BLE_WIFI_CONFIG using namespace BLE_WIFI_CONFIG_NAMESPACE;
+#define USING_NAMESPACE_BLE_WIFI_CONFIG using namespace BLE_WIFI_CONFIG_NAMESPACE;
 
-// BEGIN_BLE_WIFI_CONFIG_NAMESPACE
+BEGIN_BLE_WIFI_CONFIG_NAMESPACE
+
+/*! \brief Create an instance of the library
+ */
+#define BLE_WIFI_CONFIG_CREATE_INSTANCE(Name) \
+    BLE_WIFI_CONFIG_NAMESPACE::BleWifiConfigInterface Name;
 
 class BleWifiConfigCommonInterface
 {
@@ -76,10 +89,10 @@ protected:
     BLEServer *pServer;
 
     /** Private UUIDs */
-    std::string _sreviceUuid = "0000aaaa-ead2-11e7-80c1-9a214cf093ae";
-    std::string _wifiUuid = "00005555-ead2-11e7-80c1-9a214cf093ae";
-    std::string _listUuid = "";
-    std::string _statusUuid = "";
+    std::string _sreviceUuid = DEF_SERVICE_UUID;
+    std::string _wifiUuid = DEF_WIFI_UUID;
+    std::string _listUuid = DEF_WIFI_LIST_UUID;
+    std::string _statusUuid = DEF_WIFI_STATUS_UUID;
 
     bool _connected;
 
@@ -175,68 +188,61 @@ protected:
         return _apNum;
     }
 
+    void _init(std::string _sreviceUuid, std::string _wifiUuid, std::string _listUuid, std::string _statusUuid);
+
 public:
     BleWifiConfigInterface() {}
 
     ~BleWifiConfigInterface() {}
 
-    // void sendBLEdata(void *parameter);
-
-    void init(String _sreviceUuid = "0000aaaa-ead2-11e7-80c1-9a214cf093ae", String _wifiUuid = "00005555-ead2-11e7-80c1-9a214cf093ae", String _listUuid = "", String _statusUuid = "")
+    void init(String sreviceUuid, String wifiUuid, String listUuid, String statusUuid)
     {
-        // Create unique device name
-        apName = createName();
+        _sreviceUuid = sreviceUuid.c_str();
+        _wifiUuid = wifiUuid.c_str();
+        _listUuid = listUuid.c_str();
+        _statusUuid = statusUuid.c_str();
 
-        if (_statusUuid != "")
-        {
-            // Set up mutex semaphore
-            connStatSemaphore = xSemaphoreCreateMutex();
+        _init(_sreviceUuid, _wifiUuid, _listUuid, _statusUuid);
+    }
 
-            if (connStatSemaphore == NULL)
-            {
-                Serial.println("Error creating connStatSemaphore");
-            }
+    void init(std::string sreviceUuid, std::string wifiUuid, std::string listUuid, std::string statusUuid)
+    {
+        _sreviceUuid = sreviceUuid;
+        _wifiUuid = wifiUuid;
+        _listUuid = listUuid;
+        _statusUuid = statusUuid;
 
-            // ble task
-            xTaskCreate(
-                sendBLEdata,
-                "sendBLEdataTask",
-                2048,
-                NULL,
-                1,
-                &sendBLEdataTask);
-            delay(500);
-        }
+        _init(_sreviceUuid, _wifiUuid, _listUuid, _statusUuid);
+    }
 
-        Preferences preferences;
-        preferences.begin("WiFiCred", false);
-        bool hasPref = preferences.getBool("valid", false);
-        if (hasPref)
-        {
-            ssidPrim = preferences.getString("ssidPrim", "");
-            ssidSec = preferences.getString("ssidSec", "");
-            pwPrim = preferences.getString("pwPrim", "");
-            pwSec = preferences.getString("pwSec", "");
+    void init(String sreviceUuid, String wifiUuid)
+    {
+        _sreviceUuid = sreviceUuid.c_str();
+        _wifiUuid = wifiUuid.c_str();
+        _listUuid = DEF_WIFI_LIST_UUID;
+        _statusUuid = DEF_WIFI_STATUS_UUID;
 
-            Serial.printf("%s,%s,%s,%s\n", ssidPrim, pwPrim, ssidSec, pwSec);
+        _init(_sreviceUuid, _wifiUuid, _listUuid, _statusUuid);
+    }
 
-            if (ssidPrim.equals("") || pwPrim.equals("") || ssidSec.equals("") || pwPrim.equals(""))
-            {
-                Serial.println("Found preferences but credentials are invalid");
-            }
-            else
-            {
-                Serial.println("Read from preferences:");
-                Serial.println("primary SSID: " + ssidPrim + " password: " + pwPrim);
-                Serial.println("secondary SSID: " + ssidSec + " password: " + pwSec);
-                hasCredentials = true;
-            }
-        }
-        else
-        {
-            Serial.println("Could not find preferences, need send data over BLE");
-        }
-        preferences.end();
+    void init(std::string sreviceUuid, std::string wifiUuid)
+    {
+        _sreviceUuid = sreviceUuid;
+        _wifiUuid = wifiUuid;
+        _listUuid = DEF_WIFI_LIST_UUID;
+        _statusUuid = DEF_WIFI_STATUS_UUID;
+
+        _init(_sreviceUuid, _wifiUuid, _listUuid, _statusUuid);
+    }
+
+    void init()
+    {
+        _sreviceUuid = DEF_SERVICE_UUID;
+        _wifiUuid = DEF_WIFI_UUID;
+        _listUuid = DEF_WIFI_LIST_UUID;
+        _statusUuid = DEF_WIFI_STATUS_UUID;
+
+        _init(_sreviceUuid, _wifiUuid, _listUuid, _statusUuid);
     }
 
     // TODO why must these functions be inline??
@@ -478,6 +484,63 @@ protected:
     }
 };
 
+void BleWifiConfigInterface::_init(std::string _sreviceUuid, std::string _wifiUuid, std::string _listUuid, std::string _statusUuid)
+{
+    // Create unique device name
+    apName = createName();
+
+    if (_statusUuid != "")
+    {
+        // Set up mutex semaphore
+        connStatSemaphore = xSemaphoreCreateMutex();
+
+        if (connStatSemaphore == NULL)
+        {
+            Serial.println("Error creating connStatSemaphore");
+        }
+
+        // ble task
+        xTaskCreate(
+            sendBLEdata,
+            "sendBLEdataTask",
+            2048,
+            NULL,
+            1,
+            &sendBLEdataTask);
+        delay(500);
+    }
+
+    Preferences preferences;
+    preferences.begin("WiFiCred", false);
+    bool hasPref = preferences.getBool("valid", false);
+    if (hasPref)
+    {
+        ssidPrim = preferences.getString("ssidPrim", "");
+        ssidSec = preferences.getString("ssidSec", "");
+        pwPrim = preferences.getString("pwPrim", "");
+        pwSec = preferences.getString("pwSec", "");
+
+        Serial.printf("%s,%s,%s,%s\n", ssidPrim, pwPrim, ssidSec, pwSec);
+
+        if (ssidPrim.equals("") || pwPrim.equals("") || ssidSec.equals("") || pwPrim.equals(""))
+        {
+            Serial.println("Found preferences but credentials are invalid");
+        }
+        else
+        {
+            Serial.println("Read from preferences:");
+            Serial.println("primary SSID: " + ssidPrim + " password: " + pwPrim);
+            Serial.println("secondary SSID: " + ssidSec + " password: " + pwSec);
+            hasCredentials = true;
+        }
+    }
+    else
+    {
+        Serial.println("Could not find preferences, need send data over BLE");
+    }
+    preferences.end();
+}
+
 bool BleWifiConfigInterface::begin(const char *deviceName)
 {
     BLEDevice::init(deviceName);
@@ -718,4 +781,4 @@ void BleWifiConfigInterface::connectWiFi()
     }
 }
 
-// END_BLE_WIFI_CONFIG_NAMESPACE
+END_BLE_WIFI_CONFIG_NAMESPACE

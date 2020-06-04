@@ -61,6 +61,8 @@ const char compileDate[] = __DATE__ " " __TIME__;
 #define WIFI_LIST_UUID "1d338124-7ddc-449e-afc7-67f8673a1160"
 #define WIFI_STATUS_UUID "5b3595c4-ad4f-4e1e-954e-3b290cc02eb0"
 
+BLE_WIFI_CONFIG_CREATE_INSTANCE(bleWifi);
+
 void setup()
 {
 	// Initialize Serial port
