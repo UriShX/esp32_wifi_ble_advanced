@@ -74,11 +74,14 @@ void setup()
 
 	// Initalize BLE server with default UUIDs
 	bleWiFiConfig.init();
-	std::string bleStr = BLEDevice::toString();
-	Serial.printf("%s\n", (char *)bleStr.c_str());
 
 	while (!bleWiFiConfig.begin())
+	{
 		;
+	}
+
+	std::string bleStr = BLEDevice::toString();
+	Serial.printf("%s\n", (char *)bleStr.c_str());
 
 	bleWiFiConfig.startWiFiConnection();
 }

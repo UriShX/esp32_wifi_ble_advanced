@@ -87,6 +87,12 @@ protected:
     BLEService *pService;
     /** BLE Server */
     BLEServer *pServer;
+    /** Characteristic for digital output */
+    BLECharacteristic *pCharacteristicWiFi;
+    /** Characteristic for found WiFi list */
+    BLECharacteristic *pCharacteristicList;
+    /** Characteristic for connection status */
+    BLECharacteristic *pCharacteristicStatus;
 
     /** Private UUIDs */
     std::string _sreviceUuid = DEF_SERVICE_UUID;
@@ -105,16 +111,8 @@ public:
     TaskHandle_t sendBLEdataTask;
     /** freeRTOS mutex handle */
     SemaphoreHandle_t connStatSemaphore;
-    // public characteristics
-    /** Characteristic for digital output */
-    BLECharacteristic *pCharacteristicWiFi;
-    /** Characteristic for found WiFi list */
-    BLECharacteristic *pCharacteristicList;
-    /** Characteristic for connection status */
-    BLECharacteristic *pCharacteristicStatus;
     /** BLE Advertiser */
     BLEAdvertising *pAdvertising;
-
     // public vars
     /** Selected network 
 		true = use primary network
@@ -302,7 +300,7 @@ protected:
     void onConnect(BLEServer *pServer)
     {
         Serial.println("BLE client connected");
-        _bleWifiConfigInterface->deviceConnected = true;
+        // _bleWifiConfigInterface->deviceConnected = true;
         if (_bleWifiConfigInterface->_connectedCallback)
             _bleWifiConfigInterface->_connectedCallback();
     };
@@ -311,7 +309,7 @@ protected:
     {
         Serial.println("BLE client disconnected");
         _bleWifiConfigInterface->deviceConnected = false;
-        _bleWifiConfigInterface->pAdvertising->start();
+        // _bleWifiConfigInterface->pAdvertising->start();
         if (_bleWifiConfigInterface->_disconnectedCallback)
             _bleWifiConfigInterface->_disconnectedCallback();
     }
@@ -561,16 +559,16 @@ bool BleWifiConfigInterface::_begin(const char *deviceName)
     BLEDevice::setPower(ESP_PWR_LVL_P7);
 
     // Create BLE Server
-    pServer = BLEDevice::createServer();
+    BLEServer *pServer = BLEDevice::createServer();
 
     // Set server callbacks
     pServer->setCallbacks(new MyServerCallbacks(this));
 
     // Create BLE Service
-    pService = pServer->createService(BLEUUID(_sreviceUuid), 20);
+    BLEService *pService = pServer->createService(BLEUUID(_sreviceUuid), 20);
 
     // Create BLE Characteristic for WiFi settings
-    pCharacteristicWiFi = pService->createCharacteristic(
+    BLECharacteristic *pCharacteristicWiFi = pService->createCharacteristic(
         BLEUUID(_wifiUuid),
         // WIFI_UUID,
         BLECharacteristic::PROPERTY_READ |
@@ -578,13 +576,13 @@ bool BleWifiConfigInterface::_begin(const char *deviceName)
     pCharacteristicWiFi->setCallbacks(new MyCallbackHandler(this));
 
     // Create BLE characteristic for found SSIDs
-    pCharacteristicList = pService->createCharacteristic(
+    BLECharacteristic *pCharacteristicList = pService->createCharacteristic(
         BLEUUID(_listUuid),
         BLECharacteristic::PROPERTY_READ);
     pCharacteristicList->setCallbacks(new ListCallbackHandler(this));
 
     // Create BLE Characteristic for status notifications
-    pCharacteristicStatus = pService->createCharacteristic(
+    BLECharacteristic *pCharacteristicStatus = pService->createCharacteristic(
         BLEUUID(_statusUuid),
         BLECharacteristic::PROPERTY_NOTIFY);
     // pCharacteristicStatus->setCallbacks(new MyCallbacks()); // If only notifications no need for callback?
@@ -593,14 +591,20 @@ bool BleWifiConfigInterface::_begin(const char *deviceName)
     // Start the service
     pService->start();
 
+    // auto advertisementData = BLEAdvertisementData();
+    // advertisementData.setFlags(0x04);
+    // advertisementData.setCompleteServices(BLEUUID(_sreviceUuid));
+    // advertisementData.setName(apName.c_str());
+
     // Start advertising
-    pAdvertising = pServer->getAdvertising();
-    pAdvertising->addServiceUUID(_sreviceUuid);
+    BLEAdvertising *pAdvertising = pServer->getAdvertising();
+    pAdvertising->addServiceUUID(pService->getUUID());
+    // pAdvertising->setAdvertisementData(advertisementData);
     pAdvertising->setScanResponse(true);
     pAdvertising->start();
 
-    pServer = BLEDevice::createServer();
-    pServer->setCallbacks(new MyServerCallbacks(this));
+    // pServer = BLEDevice::createServer();
+    // pServer->setCallbacks(new MyServerCallbacks(this));
 
     return true;
 }
