@@ -101,6 +101,8 @@ protected:
     std::string _listUuid = DEF_WIFI_LIST_UUID;
     std::string _statusUuid = DEF_WIFI_STATUS_UUID;
 
+    /** BLE connection status */
+    bool deviceConnected;
     bool _connected;
 
 public:
@@ -130,8 +132,7 @@ public:
     volatile bool isConnected = false;
     /** Connection change status */
     bool connStatusChanged = false;
-    /** BLE connection status */
-    volatile bool deviceConnected = false;
+
     /** int representation of connected to primary ssid (1), secondary (2), or disconnected (0) */
     uint16_t sendVal = 0x0000;
     /** WiFi authentication mode types for enum parsing, based on esp_wifi_types.h */
@@ -206,6 +207,20 @@ public:
     BleWifiConfigInterface() {}
 
     ~BleWifiConfigInterface() {}
+
+    void onConnected(void (*fptr)())
+    {
+        // _connected = true;
+        deviceConnected = true;
+        _connectedCallback = fptr;
+    }
+    void onDisconnected(void (*fptr)())
+    {
+        // _connected = false;
+        deviceConnected = false;
+        // pAdvertising->start();
+        _disconnectedCallback = fptr;
+    }
 
     void init(String sreviceUuid, String wifiUuid, String listUuid, String statusUuid)
     {
@@ -300,17 +315,13 @@ protected:
     // TODO this doesn't take into account several clients being connected
     void onConnect(BLEServer *pServer)
     {
-        Serial.println("BLE client connected");
-        // _bleWifiConfigInterface->deviceConnected = true;
+
         if (_bleWifiConfigInterface->_connectedCallback)
             _bleWifiConfigInterface->_connectedCallback();
     };
 
     void onDisconnect(BLEServer *pServer)
     {
-        Serial.println("BLE client disconnected");
-        _bleWifiConfigInterface->deviceConnected = false;
-        // _bleWifiConfigInterface->pAdvertising->start();
         if (_bleWifiConfigInterface->_disconnectedCallback)
             _bleWifiConfigInterface->_disconnectedCallback();
     }
@@ -903,4 +914,4 @@ void BleWifiConfigInterface::wifiWatchdog()
 
 // END_BLE_WIFI_CONFIG_NAMESPACE
 
-#endif BLE_WIFI_MANAGER_H
+#endif
