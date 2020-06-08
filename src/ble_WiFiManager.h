@@ -12,7 +12,8 @@
  * Published under the MIT license, see LICENSE.md
  */
 
-#pragma once
+#ifndef BLE_WIFI_MANAGER_H
+#define BLE_WIFI_MANAGER_H
 
 #include "Arduino.h"
 // Headers for ESP32 BLE
@@ -901,3 +902,5 @@ void BleWifiConfigInterface::wifiWatchdog()
 }
 
 // END_BLE_WIFI_CONFIG_NAMESPACE
+
+#endif BLE_WIFI_MANAGER_H
