@@ -110,6 +110,8 @@ public:
     void (*_disconnectedCallback)() = NULL;
     /** BLE connection status */
     bool deviceConnected;
+    /** descriptor 2902 */
+    uint8_t *_stat2902;
 
     /** freeRTOS task handle */
     TaskHandle_t sendBLEdataTask;
@@ -209,13 +211,6 @@ protected:
         Serial.println("notify func");
         pCharacteristicStatus->setValue(val);
         pCharacteristicStatus->notify(); // Send the value to the app!
-    }
-
-    uint8_t Stat2902()
-    {
-        uint16_t val = *pStatusDescriptor->getValue();
-        Serial.printf("2902 Val: %x\n", val);
-        return 0;
     }
 
 public:
@@ -614,8 +609,9 @@ bool BleWifiConfigInterface::_begin(const char *deviceName)
         BLEUUID(_statusUuid),
         BLECharacteristic::PROPERTY_NOTIFY);
     // pCharacteristicStatus->setCallbacks(new MyCallbacks()); // If only notifications no need for callback?
-    BLEDescriptor *pStatusDescriptor = new BLE2902();
-    pCharacteristicStatus->addDescriptor(pStatusDescriptor);
+    // BLEDescriptor *pStatusDescriptor = new BLE2902();
+    // pCharacteristicStatus->addDescriptor(pStatusDescriptor);
+    pCharacteristicStatus->addDescriptor(new BLE2902());
 
     // Start the service
     pService->start();
@@ -632,6 +628,8 @@ bool BleWifiConfigInterface::_begin(const char *deviceName)
     pAdvertising->setScanResponse(true);
     pAdvertising->start();
 
+    // _stat2902 = pStatusDescriptor->getValue();
+    _stat2902 = pCharacteristicStatus->getDescriptorByUUID((uint16_t)0x2902)->getValue();
     // pServer = BLEDevice::createServer();
     // pServer->setCallbacks(new MyServerCallbacks(this));
 
@@ -708,6 +706,9 @@ void BleWifiConfigInterface::sendBLEdata(void *parameter)
 
     bool notificationFlag = false;
 
+    // test if notifications are enabled by client
+    uint8_t *testNotify = &*_bleWifiConfigInterface->_stat2902;
+
     Serial.println("Starting notifiction task");
 
     while (1)
@@ -723,13 +724,11 @@ void BleWifiConfigInterface::sendBLEdata(void *parameter)
             xSemaphoreGive(_bleWifiConfigInterface->connStatSemaphore);
             // _bleWifiConfigInterface->pCharacteristicStatus->setValue(localSendVal);
 
-            // test if notifications are enabled by client
-            uint8_t testNotify = _bleWifiConfigInterface->Stat2902();
             // pCharacteristicStatus->getDescriptorByUUID((uint16_t)0x2902)->getValue();
 
-            // Serial.printf("testNotify: %i Characteristic value: %i sendVal: %i\n", testNotify, _bleWifiConfigInterface->pStatusDescriptor->getValue(), _bleWifiConfigInterface->sendVal);
+            Serial.printf("testNotify: %i sendVal: %i\n", testNotify, localSendVal);
             // if enabled, send value over BLE
-            if (testNotify == 1)
+            if (testNotify != 0)
             {
                 _bleWifiConfigInterface->notifyFunc(localSendVal);
                 if (!notificationFlag)
@@ -742,7 +741,7 @@ void BleWifiConfigInterface::sendBLEdata(void *parameter)
             {
                 // else print failure message to serial monitor
                 Serial.print("notify failed, value of 0x2902 descriptor:\t");
-                Serial.println(testNotify, HEX); //*pCharacteristicMeas->getDescriptorByUUID((uint16_t)0x2902)->getValue(), HEX);
+                // Serial.println(testNotify, HEX); //*pCharacteristicMeas->getDescriptorByUUID((uint16_t)0x2902)->getValue(), HEX);
                 notificationFlag = false;
             }
         }
