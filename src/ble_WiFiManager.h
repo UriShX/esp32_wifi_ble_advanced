@@ -92,9 +92,6 @@ protected:
     BLECharacteristic *pCharacteristicWiFi;
     /** Characteristic for found WiFi list */
     BLECharacteristic *pCharacteristicList;
-    /** Characteristic for connection status */
-    BLECharacteristic *pCharacteristicStatus;
-    BLEDescriptor *pStatusDescriptor;
 
     /** Private UUIDs */
     std::string _sreviceUuid = DEF_SERVICE_UUID;
@@ -112,6 +109,9 @@ public:
     bool deviceConnected;
     /** descriptor 2902 */
     uint8_t *_stat2902;
+    /** Characteristic for connection status */
+    BLECharacteristic *pCharacteristicStatus;
+    BLEDescriptor *pStatusDescriptor;
 
     /** freeRTOS task handle */
     TaskHandle_t sendBLEdataTask;
@@ -609,9 +609,9 @@ bool BleWifiConfigInterface::_begin(const char *deviceName)
         BLEUUID(_statusUuid),
         BLECharacteristic::PROPERTY_NOTIFY);
     // pCharacteristicStatus->setCallbacks(new MyCallbacks()); // If only notifications no need for callback?
-    // BLEDescriptor *pStatusDescriptor = new BLE2902();
-    // pCharacteristicStatus->addDescriptor(pStatusDescriptor);
-    pCharacteristicStatus->addDescriptor(new BLE2902());
+    BLEDescriptor *pStatusDescriptor = new BLE2902();
+    pCharacteristicStatus->addDescriptor(pStatusDescriptor);
+    // pCharacteristicStatus->addDescriptor(new BLE2902());
 
     // Start the service
     pService->start();
@@ -707,7 +707,7 @@ void BleWifiConfigInterface::sendBLEdata(void *parameter)
     bool notificationFlag = false;
 
     // test if notifications are enabled by client
-    uint8_t *testNotify = &*_bleWifiConfigInterface->_stat2902;
+    uint8_t *testNotify = _bleWifiConfigInterface->_stat2902;
 
     Serial.println("Starting notifiction task");
 
@@ -728,7 +728,7 @@ void BleWifiConfigInterface::sendBLEdata(void *parameter)
 
             Serial.printf("testNotify: %i sendVal: %i\n", testNotify, localSendVal);
             // if enabled, send value over BLE
-            if (testNotify != 0)
+            if (testNotify != NULL && *testNotify != 0)
             {
                 _bleWifiConfigInterface->notifyFunc(localSendVal);
                 if (!notificationFlag)
